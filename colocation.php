@@ -456,6 +456,8 @@ function colocation_ClientArea(array $params): array
         $prtgUrl = env('PRTG_URL');
         $prtgApiToken = env('PRTG_API_TOKEN');
         $prtgSensorId = env('PRTG_SENSOR_ID');
+        $prtgGraphWidth = env('PRTG_GRAPH_WIDTH', 800);
+        $prtgGraphHeight = env('PRTG_GRAPH_HEIGHT', 300);
 
         return [
             'tabOverviewReplacementTemplate' => $templateFile,
@@ -463,6 +465,8 @@ function colocation_ClientArea(array $params): array
                 'prtgUrl' => $prtgUrl,
                 'prtgApiToken' => $prtgApiToken,
                 'prtgSensorId' => $prtgSensorId,
+                'prtgGraphWidth' => $prtgGraphWidth,
+                'prtgGraphHeight' => $prtgGraphHeight,
             ],
         ];
     } catch (Exception $e) {

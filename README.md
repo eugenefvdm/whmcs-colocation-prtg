@@ -1,5 +1,11 @@
 # WHMCS Colocation Module #
 
+## Configuration
+
+Check `.env.example` for service specific parameters
+
+### Testing
+
 ## Symbolic linking to a test WHMCS installation
 
 Example (replace the paths with your own):
