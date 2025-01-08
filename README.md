@@ -2,10 +2,11 @@
 
 ## Symbolic linking to a test WHMCS installation
 
+Example (replace the paths with your own):
 ```bash
-cd ~/Code
-ln -s whmcs-colocation-prtg/modules/servers/colocation whmcs/modules/servers/colocation
-ln -s /Volumes/1TB\ Samsung/Code/whmcs-colocation-prtg/modules/servers/colocation /Volumes/1TB\ Samsung/Code/whmcs/modules/servers
+ln -s /Volumes/1TB\ Samsung/Code/whmcs-colocation-prtg /Volumes/1TB\ Samsung/Code/whmcs/modules/servers/colocation
 ```
-
-
+Removing the symbolic link:
+```bash
+ rm /Volumes/1TB\ Samsung/Code/whmcs/modules/servers/colocation
+```

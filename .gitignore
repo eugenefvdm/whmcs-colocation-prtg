@@ -1,0 +1,10 @@
+# Composer
+composer.lock
+vendor/*
+
+# Custom
+.idea/
+# Ignore .env files everywhere
+**/.env
+
+
