@@ -1,0 +1,5 @@
+# Do not serve the module .env over HTTP. Nginx does not read this file.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^\.env$ - [F,L]
+</IfModule>

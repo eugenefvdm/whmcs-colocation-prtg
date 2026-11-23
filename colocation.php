@@ -1,20 +1,18 @@
 <?php
 
+use Colocation\Env;
+use Colocation\GraphRequest;
+use Colocation\ObjectId;
+use Colocation\ObjectIdStore;
+
 if (!defined("WHMCS")) {
     die("This file cannot be accessed directly");
 }
 
-// Require any libraries needed for the module to function.
-// require_once __DIR__ . '/path/to/library/loader.php';
-//
-// Also, perform any initialization required by the service's library.
-
 require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/lib/GraphRequest.php';
 
-use Dotenv\Dotenv;
-
-$dotenv = Dotenv::createImmutable(__DIR__);
-$dotenv->load();
+Env::load();
 
 function colocation_MetaData(): array
 {
@@ -24,8 +22,6 @@ function colocation_MetaData(): array
         'RequiresServer' => true, // Set true if module requires a server to work
         'DefaultNonSSLPort' => '1111', // Default Non-SSL Connection Port
         'DefaultSSLPort' => '1112', // Default SSL Connection Port
-        'ServiceSingleSignOnLabel' => 'Login to Panel as User',
-        'AdminSingleSignOnLabel' => 'Login to Panel as Admin',
     ];
 }
 
@@ -38,9 +34,11 @@ function colocation_ConfigOptions(): array
                 'prtg' => 'PRTG',
             ],
         ],
-            'Object ID' => [
+        // Second option so the value stays on configoption2 for existing products.
+        'Object ID' => [
             'Type' => 'text',
             'Size' => '16',
+            'Description' => 'Default PRTG object id when a service has none of its own.',
         ],
     ];
 }
@@ -226,265 +224,154 @@ function colocation_actionOneFunction(array $params): string
 }
 
 /**
- * Admin services tab additional fields.
- *
- * Define additional rows and fields to be displayed in the admin area service
- * information and management page within the clients profile.
- *
- * Supports an unlimited number of additional field labels and content of any
- * type to output.
+ * Graph Object ID on the admin service page. Shows the stored per-service value only.
  *
  * @param array $params common module parameters
- *
- * @see https://developers.whmcs.com/provisioning-modules/module-parameters/
- * @see colocation_AdminServicesTabFieldsSave()
  *
  * @return array
  */
 function colocation_AdminServicesTabFields(array $params)
 {
     try {
-        // Call the service's function, using the values provided by WHMCS in
-        // `$params`.
-        $response =[];
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        if ($serviceId < 1) {
+            return [
+                'Graph Object ID' => 'Open a service to set the PRTG object id.',
+            ];
+        }
 
-        // Return an array based on the function's response.
-        return array(
-            'Graph Object ID' => '<input type="hidden" name="colocation_original_uniquefieldname" '
-                . 'value="' . htmlspecialchars($response['textvalue']) . '" />'
-                . '<input type="text" name="colocation_uniquefieldname"'
-                . 'value="' . htmlspecialchars($response['textvalue']) . '" />',
-        );
-    } catch (Exception $e) {
-        // Record the error in WHMCS's module log.
+        if (!ObjectIdStore::ensure()) {
+            return [
+                'Graph Object ID' => 'The object id table could not be created. Check the database permissions.',
+            ];
+        }
+
+        $stored = ObjectIdStore::find($serviceId) ?? '';
+        $current = ObjectId::numeric($stored) ?? $stored;
+        $safe = htmlspecialchars($current, ENT_QUOTES, 'UTF-8');
+
+        return [
+            'Graph Object ID' => '<input type="hidden" name="colocation_original_object_id" value="' . $safe . '" />'
+                . '<input type="text" name="colocation_object_id" value="' . $safe . '" size="16" maxlength="15" />'
+                . '<div class="text-muted">PRTG sensor or object id for this service. Digits only. Leave blank to use the product Object ID.</div>',
+        ];
+    } catch (Throwable $e) {
         logModuleCall(
             'colocation',
             __FUNCTION__,
-            $params,
+            ['serviceid' => (int) ($params['serviceid'] ?? 0)],
             $e->getMessage(),
             $e->getTraceAsString()
         );
-
-        // In an error condition, simply return no additional fields to display.
     }
 
-    return array();
+    return [];
 }
 
 /**
- * Execute actions upon save of an instance of a product/service.
- *
- * Use to perform any required actions upon the submission of the admin area
- * product management form.
- *
- * It can also be used in conjunction with the AdminServicesTabFields function
- * to handle values submitted in any custom fields which is demonstrated here.
+ * Persist Graph Object ID when the admin service form is saved.
+ * A save that does not include the field leaves the stored value alone.
  *
  * @param array $params common module parameters
- *
- * @see https://developers.whmcs.com/provisioning-modules/module-parameters/
- * @see colocation_AdminServicesTabFields()
  */
 function colocation_AdminServicesTabFieldsSave(array $params)
 {
-    // Fetch form submission variables.
-    $originalFieldValue = isset($_REQUEST['colocation_original_uniquefieldname'])
-        ? $_REQUEST['colocation_original_uniquefieldname']
-        : '';
-
-    $newFieldValue = isset($_REQUEST['colocation_uniquefieldname'])
-        ? $_REQUEST['colocation_uniquefieldname']
-        : '';
-
-    // Look for a change in value to avoid making unnecessary service calls.
-    if ($originalFieldValue != $newFieldValue) {
-        try {
-//            echo $newFieldValue;
-            // Call the service's function, using the values provided by WHMCS
-            // in `$params`.
-        } catch (Exception $e) {
-            // Record the error in WHMCS's module log.
-            logModuleCall(
-                'colocation',
-                __FUNCTION__,
-                $params,
-                $e->getMessage(),
-                $e->getTraceAsString()
-            );
-
-            // Otherwise, error conditions are not supported in this operation.
-        }
+    $serviceId = (int) ($params['serviceid'] ?? 0);
+    if ($serviceId < 1) {
+        return;
     }
-}
 
-///**
-// * Perform single sign-onfor a given instance of a product/service.
-// *
-// * Called when single sign-on is requested for an instance of a product/service.
-// *
-// * When successful, returns a URL to which the user should be redirected.
-// *
-// * @param array $params common module parameters
-// *
-// * @see https://developers.whmcs.com/provisioning-modules/module-parameters/
-// *
-// * @return array
-// */
-//function colocation_ServiceSingleSignOn(array $params)
-//{
-//    try {
-//        // Call the service's single sign-on token retrieval function, using the
-//        // values provided by WHMCS in `$params`.
-//        $response = array();
-//
-//        return array(
-//            'success' => true,
-//            'redirectTo' => $response['redirectUrl'],
-//        );
-//    } catch (Exception $e) {
-//        // Record the error in WHMCS's module log.
-//        logModuleCall(
-//            'colocation',
-//            __FUNCTION__,
-//            $params,
-//            $e->getMessage(),
-//            $e->getTraceAsString()
-//        );
-//
-//        return array(
-//            'success' => false,
-//            'errorMsg' => $e->getMessage(),
-//        );
-//    }
-//}
+    $original = $_POST['colocation_original_object_id'] ?? '';
+    $submitted = $_POST['colocation_object_id'] ?? null;
+    if (!is_string($original) || !is_string($submitted)) {
+        return;
+    }
 
-/**
- * Perform single sign-on for a server.
- *
- * Called when single sign-on is requested for a server assigned to the module.
- *
- * This differs from ServiceSingleSignOn in that it relates to a server
- * instance within the admin area, as opposed to a single client instance of a
- * product/service.
- *
- * When successful, returns a URL to which the user should be redirected to.
- *
- * @param array $params common module parameters
- *
- * @see https://developers.whmcs.com/provisioning-modules/module-parameters/
- *
- * @return array
- */
-function colocation_AdminSingleSignOn(array $params)
-{
-    try {
-        // Call the service's single sign-on admin token retrieval function,
-        // using the values provided by WHMCS in `$params`.
-        $response = array();
+    $original = trim($original);
+    $submitted = trim($submitted);
 
-        return array(
-            'success' => true,
-            'redirectTo' => $response['redirectUrl'],
-        );
-    } catch (Exception $e) {
-        // Record the error in WHMCS's module log.
+    if ($submitted !== '' && ObjectId::numeric($submitted) === null) {
         logModuleCall(
             'colocation',
             __FUNCTION__,
-            $params,
-            $e->getMessage(),
-            $e->getTraceAsString()
+            ['serviceid' => $serviceId],
+            'Graph Object ID was not a positive integer and was left unchanged',
+            ''
         );
 
-        return array(
-            'success' => false,
-            'errorMsg' => $e->getMessage(),
+        return;
+    }
+
+    $originalId = ObjectId::numeric($original) ?? '';
+    $submittedId = ObjectId::numeric($submitted) ?? '';
+    if ($originalId === $submittedId) {
+        return;
+    }
+
+    try {
+        $saved = $submittedId === ''
+            ? ObjectIdStore::forget($serviceId)
+            : ObjectIdStore::put($serviceId, $submittedId);
+
+        if (!$saved) {
+            logModuleCall(
+                'colocation',
+                __FUNCTION__,
+                ['serviceid' => $serviceId],
+                'Could not store the PRTG object id',
+                ''
+            );
+        }
+    } catch (Throwable $e) {
+        logModuleCall(
+            'colocation',
+            __FUNCTION__,
+            ['serviceid' => $serviceId],
+            $e->getMessage(),
+            $e->getTraceAsString()
         );
     }
 }
 
 /**
- * Client area output logic handling.
- *
- * This function is used to define module specific client area output. It should
- * return an array consisting of a template file and optional additional
- * template variables to make available to that template.
- *
- * The template file you return can be one of two types:
- *
- * * tabOverviewModuleOutputTemplate - The output of the template provided here
- *   will be displayed as part of the default product/service client area
- *   product overview page.
- *
- * * tabOverviewReplacementTemplate - Alternatively using this option allows you
- *   to entirely take control of the product/service overview page within the
- *   client area.
- *
- * Whichever option you choose, extra template variables are defined in the same
- * way. This demonstrates the use of the full replacement.
- *
- * Please Note: Using tabOverviewReplacementTemplate means you should display
- * the standard information such as pricing and billing details in your custom
- * template or they will not be visible to the end user.
+ * Client area overview. Graph images point at graph.php so the PRTG token
+ * stays on the server. Replacing the overview hides the standard billing block.
  *
  * @param array $params common module parameters
- *
- * @see https://developers.whmcs.com/provisioning-modules/module-parameters/
  *
  * @return array
  */
 function colocation_ClientArea(array $params): array
 {
-    // Determine the requested action and set service call parameters based on
-    // the action.
-    $requestedAction = isset($_REQUEST['customAction']) ? $_REQUEST['customAction'] : '';
-
-    if ($requestedAction == 'manage') {
-        $serviceAction = 'get_usage';
-        $templateFile = 'templates/manage.tpl';
-    } else {
-        $serviceAction = 'get_stats';
-        $templateFile = 'templates/overview.tpl';
-    }
-
     try {
-        // Call the service's function based on the request action, using the
-        // values provided by WHMCS in `$params`.
-        $response = [];
-
-        // Create variables for the PRTG settings according to the .env file
-        $prtgUrl = env('PRTG_URL');
-        $prtgApiToken = env('PRTG_API_TOKEN');
-        $prtgSensorId = env('PRTG_SENSOR_ID');
-        $prtgGraphWidth = env('PRTG_GRAPH_WIDTH', 800);
-        $prtgGraphHeight = env('PRTG_GRAPH_HEIGHT', 300);
+        $serviceId = (int) ($params['serviceid'] ?? 0);
+        $productObjectId = isset($params['configoption2']) ? (string) $params['configoption2'] : '';
+        $objectId = $serviceId > 0
+            ? ObjectId::forService($serviceId, $productObjectId)
+            : null;
 
         return [
-            'tabOverviewReplacementTemplate' => $templateFile,
+            'tabOverviewReplacementTemplate' => 'templates/overview.tpl',
             'templateVariables' => [
-                'prtgUrl' => $prtgUrl,
-                'prtgApiToken' => $prtgApiToken,
-                'prtgSensorId' => $prtgSensorId,
-                'prtgGraphWidth' => $prtgGraphWidth,
-                'prtgGraphHeight' => $prtgGraphHeight,
+                'prtgGraphConfigured' => $objectId !== null,
+                'prtgGraphBase' => GraphRequest::clientBaseUrl(),
+                'serviceId' => $serviceId,
             ],
         ];
-    } catch (Exception $e) {
-        // Record the error in WHMCS's module log.
+    } catch (Throwable $e) {
         logModuleCall(
             'colocation',
             __FUNCTION__,
-            $params,
+            ['serviceid' => (int) ($params['serviceid'] ?? 0)],
             $e->getMessage(),
             $e->getTraceAsString()
         );
 
-        // In an error condition, display an error page.
-        return array(
-            'tabOverviewReplacementTemplate' => 'error.tpl',
-            'templateVariables' => array(
-                'usefulErrorHelper' => $e->getMessage(),
-            ),
-        );
+        return [
+            'tabOverviewReplacementTemplate' => 'templates/error.tpl',
+            'templateVariables' => [
+                'usefulErrorHelper' => 'The network graphs could not be loaded.',
+            ],
+        ];
     }
 }

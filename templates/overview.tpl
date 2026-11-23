@@ -1,9 +1,13 @@
 <h3>Network Traffic</h3>
 
-<img src="{$prtgUrl}/chart.png?type=graph&width={$prtgGraphWidth}&height={$prtgGraphHeight}&graphid=0&id={$prtgSensorId}&apitoken={$prtgApiToken}" alt="2 hours network traffic graph" />
+{if $prtgGraphConfigured}
+<img src="{$prtgGraphBase}?serviceid={$serviceId}&graphid=0" alt="2 hours network traffic graph" />
 
-<img src="{$prtgUrl}/chart.png?type=graph&width={$prtgGraphWidth}&height={$prtgGraphHeight}&graphid=1&id={$prtgSensorId}&apitoken={$prtgApiToken}" alt="2 days network traffic graph" />
+<img src="{$prtgGraphBase}?serviceid={$serviceId}&graphid=1" alt="2 days network traffic graph" />
 
-<img src="{$prtgUrl}/chart.png?type=graph&width={$prtgGraphWidth}&height={$prtgGraphHeight}&graphid=2&id={$prtgSensorId}&apitoken={$prtgApiToken}" alt="30 days network traffic graph" />
+<img src="{$prtgGraphBase}?serviceid={$serviceId}&graphid=2" alt="30 days network traffic graph" />
 
-<img src="{$prtgUrl}/chart.png?type=graph&width={$prtgGraphWidth}&height={$prtgGraphHeight}&graphid=3&id={$prtgSensorId}&apitoken={$prtgApiToken}" alt="365 days network traffic graph" />
+<img src="{$prtgGraphBase}?serviceid={$serviceId}&graphid=3" alt="365 days network traffic graph" />
+{else}
+<p class="text-muted">No network graph is configured for this service.</p>
+{/if}

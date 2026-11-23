@@ -7,4 +7,10 @@ vendor/*
 # Ignore .env files everywhere
 **/.env
 
+# Local Vander Host deploy. Not part of the public module.
+deploy.sh
+
+# Local briefs. They name other private repositories.
+docs/
+
 
